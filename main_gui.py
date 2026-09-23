@@ -2,7 +2,9 @@
 
 Same game, same saves (data/save.json), rendered with pygame instead of
 ANSI: crisp pixel-art ships, real window, no font/codepage issues.
-Controls are identical to the terminal version.
+Controls are identical to the terminal version, plus:
+    F11             toggle fullscreen
+    --fullscreen    start in fullscreen
 """
 
 import sys
@@ -20,7 +22,7 @@ from ui.pygame_frontend import PygameInput, PygameRenderer
 
 def main():
     renderer = PygameRenderer()
-    renderer.setup()
+    renderer.setup(fullscreen="--fullscreen" in sys.argv)
     input_sys = PygameInput()
     try:
         game = Game(renderer, input_sys)
@@ -40,6 +42,8 @@ def main():
             inp = input_sys.poll()
             if input_sys.closed:
                 break
+            if input_sys.toggle_fullscreen:
+                renderer.set_fullscreen(not renderer.fullscreen)
             t_update = time.perf_counter()
             game.update(dt, inp)
             t_render = time.perf_counter()

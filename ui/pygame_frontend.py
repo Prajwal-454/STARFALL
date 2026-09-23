@@ -85,14 +85,17 @@ class PygameRenderer(TerminalRenderer):
         super().__init__()
         self.width, self.height = GRID_W, GRID_H
         self.screen = None
+        self.canvas = None  # fixed 960x560 grid surface, scaled to window
         self.font = None
+        self.fullscreen = False
         self._glyph_cache = {}
 
-    def setup(self):
+    def setup(self, fullscreen=False):
         pygame.init()
-        self.screen = pygame.display.set_mode(
-            (GRID_W * CELL_W, GRID_H * CELL_H))
-        pygame.display.set_caption("STARFALL: TERMINAL WAR (GUI)")
+        self.fullscreen = fullscreen
+        self.canvas = pygame.Surface((GRID_W * CELL_W, GRID_H * CELL_H))
+        self._apply_mode()
+        pygame.display.set_caption("STARFALL: TERMINAL WAR (GUI) — F11 fullscreen")
         try:
             self.font = pygame.font.SysFont("consolas", 14)
         except Exception:
@@ -101,6 +104,18 @@ class PygameRenderer(TerminalRenderer):
             self.font = pygame.font.Font(None, 14)
         assert self.font is not None
         self.refresh_size()
+
+    def _apply_mode(self):
+        flags = pygame.FULLSCREEN if self.fullscreen else 0
+        # fullscreen: native resolution; windowed: exact canvas size
+        size = (0, 0) if self.fullscreen else (GRID_W * CELL_W, GRID_H * CELL_H)
+        self.screen = pygame.display.set_mode(size, flags)
+
+    def set_fullscreen(self, on):
+        if on == self.fullscreen:
+            return
+        self.fullscreen = on
+        self._apply_mode()
 
     def restore(self):
         try:
@@ -127,9 +142,9 @@ class PygameRenderer(TerminalRenderer):
         return s
 
     def present(self, shake_x=0, shake_y=0, flash_color="", flash_alpha=0.0):
-        if self.screen is None:
+        if self.screen is None or self.canvas is None:
             return
-        self.screen.fill((5, 8, 18))  # deep-space background
+        self.canvas.fill((5, 8, 18))  # deep-space background
         ox, oy = int(shake_x * CELL_W), int(shake_y * CELL_H)
         for y in range(self.height):
             for x in range(self.width):
@@ -139,10 +154,21 @@ class PygameRenderer(TerminalRenderer):
                 rgb = ansi_to_rgb(self.colors[y][x])
                 px, py = x * CELL_W + ox, y * CELL_H + oy
                 if ch in BLOCKS:
-                    self.screen.fill(rgb, (px, py, CELL_W, CELL_H))
+                    self.canvas.fill(rgb, (px, py, CELL_W, CELL_H))
                 else:
                     g = self._glyph(ch, rgb)
-                    self.screen.blit(g, (px, py))
+                    self.canvas.blit(g, (px, py))
+        if self.fullscreen:
+            # scale canvas to fit screen, keep aspect (letterbox bars)
+            sw, sh = self.screen.get_size()
+            cw, ch = self.canvas.get_size()
+            scale = min(sw / cw, sh / ch)
+            dw, dh = int(cw * scale), int(ch * scale)
+            frame = pygame.transform.scale(self.canvas, (dw, dh))
+            self.screen.fill((0, 0, 0))
+            self.screen.blit(frame, ((sw - dw) // 2, (sh - dh) // 2))
+        else:
+            self.screen.blit(self.canvas, (0, 0))
         pygame.display.flip()
 
 
@@ -166,17 +192,22 @@ class PygameInput:
 
     def __init__(self):
         self.closed = False
+        self.toggle_fullscreen = False  # set True on F11, consumed by main loop
         self._held = set()
 
     def poll(self):
         st = InputState()
         pressed = set()
+        self.toggle_fullscreen = False
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 self.closed = True
             elif ev.type in (pygame.WINDOWFOCUSLOST,):
                 self._held.clear()  # never stick keys on alt-tab
             elif ev.type == pygame.KEYDOWN:
+                if ev.key == pygame.K_F11:
+                    self.toggle_fullscreen = True
+                    continue
                 act = _KEYMAP.get(ev.key)
                 if act:
                     self._held.add(act)
