@@ -1,0 +1,2 @@
+# Optional GUI frontend (pygame). The terminal game needs nothing.
+pygame>=2.5

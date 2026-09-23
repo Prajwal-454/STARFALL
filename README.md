@@ -19,6 +19,18 @@ python main.py
 python main.py --debug
 ```
 
+## GUI version (pygame)
+
+Same game, same saves, real window — launch from CMD with:
+
+```bash
+pip install -r requirements-gui.txt
+python main_gui.py
+```
+
+The GUI reuses the game logic 1:1 (same 120×35 grid, HUD, collisions);
+only the renderer (pixel-art cells) and input (real key events) differ.
+
 If Windows shows boxes instead of `✦ █ ╔`, switch your terminal font to
 *Cascadia Mono / Consolas* and run `chcp 65001` first. Windows Terminal
 renders everything perfectly out of the box.
