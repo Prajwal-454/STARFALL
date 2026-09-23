@@ -1,0 +1,7 @@
+# Runtime / local data (do not commit personal scores)
+data/save.json
+data/telemetry.json
+
+# Python bytecode
+__pycache__/
+*.py[cod]
